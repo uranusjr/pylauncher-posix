@@ -1,6 +1,6 @@
 [package]
 name = "pylauncher"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Tzu-ping Chung <uranusjr@gmail.com>"]
 description = "Python Launcher for POSIX"
 readme = "README.md"
