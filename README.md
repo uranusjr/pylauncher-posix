@@ -20,7 +20,7 @@ and so on. This avoids relying on the `PATH` environment variable, which can be 
 
 ## Finding a Python
 
-Unlike Windows (from which this utility drew inspiration from), POSIX systems does not have a registry to declare what is installed. This tool, therefore, uses some heuristics to determine find Pythons.
+Unlike Windows (from which this utility drew inspiration from), POSIX systems do not have a registry to declare what is installed. This tool, therefore, uses some heuristics to determine find Pythons.
 
 Python installations are categorised into two kinds: managed, and executable.
 
