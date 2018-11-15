@@ -29,7 +29,11 @@ fn parse_version_from_name(name: &str, patch: i16) -> Option<(i16, i16, i16)> {
 }
 
 fn parse_managed_root_path(root: &path::Path) -> Option<(i16, i16, i16)> {
-    parse_version_from_name(root.file_name()?.to_str()?, 0)
+    let mut name = root.file_name()?.to_str()?;
+    if name.starts_with("CPython-") {   // Pythonz prefixes CPython versions.
+        name = &name[8..];
+    }
+    parse_version_from_name(name, 0)
 }
 
 fn parse_executable_path(location: &path::Path) -> Option<(i16, i16, i16)> {
@@ -53,12 +57,12 @@ struct Python {
 }
 
 impl Python {
-    fn from_managed(root: path::PathBuf) -> Option<Python> {
+    fn from_managed(root: path::PathBuf, order: usize) -> Option<Python> {
         let p = root.join("bin/python");
         let version = parse_managed_root_path(&root)?;
         if p.is_file() {
             let location = String::from(p.to_str()?);
-            Some(Self { location: location, version: version, order: 0 })
+            Some(Self { location: location, version: version, order: order })
         } else {
             None
         }
@@ -67,7 +71,7 @@ impl Python {
     fn from_in_path(p: path::PathBuf, order: usize) -> Option<Python> {
         let version = parse_executable_path(&p)?;
         let location = String::from(p.to_str()?);
-        Some(Self { location: location, version: version, order: order + 1 })
+        Some(Self { location: location, version: version, order: order })
     }
 
     fn matches(&self, spec: &specs::Spec) -> bool {
@@ -91,18 +95,12 @@ impl fmt::Debug for Python {
 
 struct ManagedFinder {
     dir: Option<fs::ReadDir>,
+    order: usize,
 }
 
 impl ManagedFinder {
-    fn from(env_key: &str, subpath: &str) -> Self {
-        match env::var(env_key) {
-            Ok(v) => {
-                let mut dir = path::PathBuf::from(v);
-                dir.push(subpath);
-                Self { dir: fs::read_dir(dir).ok() }
-            },
-            Err(_) => Self { dir: None },
-        }
+    fn from(dir: path::PathBuf, order: usize) -> Self {
+        Self { dir: fs::read_dir(dir).ok(), order: order }
     }
 }
 
@@ -115,7 +113,7 @@ impl Iterator for ManagedFinder {
                 None => { return None; },
                 Some(ref mut d) => d.next()?.ok()?.path(),
             };
-            match Python::from_managed(prefix) {
+            match Python::from_managed(prefix, self.order) {
                 None => {},
                 Some(python) => {
                     dbg!("Managed" => &python);
@@ -159,29 +157,32 @@ impl Iterator for ExecutableFinder {
 
 fn collect_all() -> Vec<Python> {
     let mut pythons = vec![];
+    let mut order = 0;
 
-    // TODO: Maybe we want to switch to explicit setup, i.e. expose an
-    // environment variable. An example set up would be:
-    // PY_PYTHON_MANAGED=$PYENV/versions:$ASDF_DATA_DIR/installs/python
-    pythons.extend(ManagedFinder::from("ASDF_DATA_DIR", "installs/python"));
-    pythons.extend(ManagedFinder::from("PYENV_ROOT", "versions"));
+    match env::var("PY_MANAGED_DIR") {
+        Err(_) => {},
+        Ok(value) => {
+            for dir in env::split_paths(&value) {
+                pythons.extend(ManagedFinder::from(dir, order));
+                order += 1;
+            }
+        },
+    }
 
-    let path = env::var("PATH").unwrap_or_default();
-    for (i, dir) in env::split_paths(&path).enumerate() {
-        pythons.extend(ExecutableFinder::from(dir, i));
+    match env::var("PATH") {
+        Err(_) => {},
+        Ok(value) => {
+            for dir in env::split_paths(&value) {
+                pythons.extend(ExecutableFinder::from(dir, order));
+                order += 1;
+            }
+        },
     }
 
     pythons
 }
 
 fn select_best(best: Option<Python>, next: Python) -> Option<Python> {
-    // Current ordering method:
-    // 1. Highest specified version possible.
-    // 2. Managed over PATH-exposed.
-    // 3. Order by PATH order.
-    // This logic has some unique quirks, e.g. if PATH[0] has python3, but
-    // PATH[1] has python3.7, py -3 would select python3.7 (Rule 1, 3.7 is
-    // more specified than 3). This could potentially change in the future.
     match best {
         None => Some(next),
         Some(p) => if next.version > p.version || next.order < p.order {
