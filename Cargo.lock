@@ -59,7 +59,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "pylauncher"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "dbg 1.0.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "exec 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",

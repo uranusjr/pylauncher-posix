@@ -1,6 +1,5 @@
-use std::env;
+use std::cmp;
 use std::fmt;
-use std::fs;
 use std::path;
 
 use specs;
@@ -50,14 +49,15 @@ fn parse_executable_path(location: &path::Path) -> Option<(i16, i16, i16)> {
     }
 }
 
-struct Python {
+#[derive(Eq)]
+pub struct Python {
     location: String,
     version: (i16, i16, i16),
     order: usize,   // Tie breaker (e.g. order in PATH).
 }
 
 impl Python {
-    fn from_managed(root: path::PathBuf, order: usize) -> Option<Python> {
+    pub fn from_managed(root: path::PathBuf, order: usize) -> Option<Python> {
         let p = root.join("bin/python");
         let version = parse_managed_root_path(&root)?;
         if p.is_file() {
@@ -68,18 +68,46 @@ impl Python {
         }
     }
 
-    fn from_in_path(p: path::PathBuf, order: usize) -> Option<Python> {
+    pub fn from_in_path(p: path::PathBuf, order: usize) -> Option<Python> {
         let version = parse_executable_path(&p)?;
         let location = String::from(p.to_str()?);
         Some(Self { location: location, version: version, order: order })
     }
 
-    fn matches(&self, spec: &specs::Spec) -> bool {
+    pub fn matches(&self, spec: &specs::Spec) -> bool {
         match spec {
             specs::Spec::Major(x) => self.version.0 == (*x as i16),
             specs::Spec::Minor(x, y) => {
                 self.version.0 == (*x as i16) && self.version.1 == (*y as i16)
             },
+        }
+    }
+
+    pub fn location(&self) -> &str {
+        self.location.as_str()
+    }
+}
+
+impl PartialEq for Python {
+    fn eq(&self, other: &Self) -> bool {
+        self.version == other.version && self.order == other.order
+    }
+}
+
+impl PartialOrd for Python {
+    fn partial_cmp(&self, other: &Self) -> Option<cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Python {
+    fn cmp(&self, other: &Self) -> cmp::Ordering {
+        match self.version.cmp(&other.version) {
+            cmp::Ordering::Equal => {
+                // Note that the order is reversed: The smaller the better.
+                other.order.cmp(&self.order)
+            },
+            ordering => ordering,
         }
     }
 }
@@ -91,135 +119,4 @@ impl fmt::Debug for Python {
             self.version.0, self.version.1, self.version.2,
             self.order)
     }
-}
-
-struct ManagedFinder {
-    dir: Option<fs::ReadDir>,
-    order: usize,
-}
-
-impl ManagedFinder {
-    fn from(dir: path::PathBuf, order: usize) -> Self {
-        Self { dir: fs::read_dir(dir).ok(), order: order }
-    }
-}
-
-impl Iterator for ManagedFinder {
-    type Item = Python;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let prefix = match self.dir {
-                None => { return None; },
-                Some(ref mut d) => d.next()?.ok()?.path(),
-            };
-            match Python::from_managed(prefix, self.order) {
-                None => {},
-                Some(python) => {
-                    dbg!("Managed" => &python);
-                    return Some(python);
-                },
-            }
-        }
-    }
-}
-
-struct ExecutableFinder {
-    dir: Option<fs::ReadDir>,
-    order: usize,
-}
-
-impl ExecutableFinder {
-    fn from(dir: path::PathBuf, order: usize) -> Self {
-        Self { dir: fs::read_dir(dir).ok(), order: order }
-    }
-}
-
-impl Iterator for ExecutableFinder {
-    type Item = Python;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let prefix = match self.dir {
-                None => { return None; },
-                Some(ref mut d) => d.next()?.ok()?.path(),
-            };
-            match Python::from_in_path(prefix, self.order) {
-                None => {},
-                Some(python) => {
-                    dbg!("Executable" => &python);
-                    return Some(python);
-                },
-            }
-        }
-    }
-}
-
-fn collect_all() -> Vec<Python> {
-    let mut pythons = vec![];
-    let mut order = 0;
-
-    match env::var("PY_MANAGED_DIR") {
-        Err(_) => {},
-        Ok(value) => {
-            for dir in env::split_paths(&value) {
-                pythons.extend(ManagedFinder::from(dir, order));
-                order += 1;
-            }
-        },
-    }
-
-    match env::var("PATH") {
-        Err(_) => {},
-        Ok(value) => {
-            for dir in env::split_paths(&value) {
-                pythons.extend(ExecutableFinder::from(dir, order));
-                order += 1;
-            }
-        },
-    }
-
-    pythons
-}
-
-fn select_best(best: Option<Python>, next: Python) -> Option<Python> {
-    match best {
-        None => Some(next),
-        Some(p) => if next.version > p.version || next.order < p.order {
-            Some(next)
-        } else {
-            Some(p)
-        },
-    }
-}
-
-pub fn find(spec: &specs::Spec) -> Option<String> {
-    collect_all().into_iter()
-        .filter(|python| python.matches(spec))
-        .fold(None, select_best)
-        .map(|p| p.location)
-}
-
-
-fn get_virtual() -> Option<String> {
-    // The Windows launcher seems to swallow all errors, so we're not worse.
-    let root = match env::var("VIRTUAL_ENV") {
-        Ok(v) => v,
-        Err(_) => { return None; },
-    };
-
-    let location = path::Path::new(&root).join("bin/python");
-    if location.is_file() {
-        location.to_str().map(String::from)
-    } else {
-        None
-    }
-}
-
-pub fn find_default() -> Option<String> {
-    match get_virtual() {
-        Some(v) => { return Some(v); },
-        None => {},
-    }
-    collect_all().into_iter().fold(None, select_best).map(|p| p.location)
 }

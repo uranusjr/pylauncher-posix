@@ -2,6 +2,7 @@
 
 extern crate exec;
 
+mod finders;
 mod pythons;
 mod specs;
 
@@ -58,7 +59,7 @@ The following help text is from Python:
 
 macro_rules! find_python {
     ( $spec: expr ) => {
-        match pythons::find(&$spec) {
+        match finders::find(&$spec) {
             Some(python) => python,
             None => {
                 eprint!("Requested Python version (");
@@ -73,7 +74,7 @@ macro_rules! find_python {
     };
 
     () => {
-        match pythons::find_default() {
+        match finders::find_default() {
             Some(python) => python,
             None => {
                 eprintln!("Python is not installed");
