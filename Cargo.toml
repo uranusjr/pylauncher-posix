@@ -1,0 +1,15 @@
+[package]
+name = "pylauncher"
+version = "0.1.0"
+authors = ["Tzu-ping Chung <uranusjr@gmail.com>"]
+description = "Python Launcher for POSIX"
+readme = "README.md"
+license = "ISC"
+
+[[bin]]
+name = "py"
+path = "src/main.rs"
+
+[dependencies]
+exec = "^0.3.1"
+num-integer = "^0.1.39"
