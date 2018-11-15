@@ -4,33 +4,6 @@ use std::path;
 
 use specs;
 
-fn get_virtual() -> Option<String> {
-    // The Windows launcher seems to swallow all errors, so we're not worse.
-    let root = match env::var("VIRTUAL_ENV") {
-        Ok(v) => v,
-        Err(_) => { return None; },
-    };
-
-    let location = path::Path::new(&root).join("bin/python");
-    if location.is_file() {
-        location.to_str().map(String::from)
-    } else {
-        None
-    }
-}
-
-pub fn find_default() -> String {
-    match get_virtual() {
-        Some(v) => { return v; },
-        None => {},
-    }
-
-    // Fallback to PATH.
-    // Since we're using execvp, the system will do the right thing.
-    // TODO: Actually implement something? I don't know.
-    String::from("python")
-}
-
 // Major, minor, patch. Any component could be -1 if unknown.
 // "patch" specifies the default patch number to use if the name is X.Y. This
 // is needed because older Python versions use e.g. "3.2" to refer 3.2.0, but
@@ -205,9 +178,32 @@ fn select_best(best: Option<Python>, next: Python) -> Option<Python> {
 }
 
 pub fn find(spec: &specs::Spec) -> Option<String> {
-    // 2. Sort and choose the best one (a lot of criteria).
     collect_all().into_iter()
         .filter(|python| python.matches(spec))
         .fold(None, select_best)
         .map(|p| p.location)
+}
+
+
+fn get_virtual() -> Option<String> {
+    // The Windows launcher seems to swallow all errors, so we're not worse.
+    let root = match env::var("VIRTUAL_ENV") {
+        Ok(v) => v,
+        Err(_) => { return None; },
+    };
+
+    let location = path::Path::new(&root).join("bin/python");
+    if location.is_file() {
+        location.to_str().map(String::from)
+    } else {
+        None
+    }
+}
+
+pub fn find_default() -> Option<String> {
+    match get_virtual() {
+        Some(v) => { return Some(v); },
+        None => {},
+    }
+    collect_all().into_iter().fold(None, select_best).map(|p| p.location)
 }

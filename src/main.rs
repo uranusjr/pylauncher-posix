@@ -54,6 +54,33 @@ Launcher arguments:
 The following help text is from Python:
 ", env!("CARGO_PKG_VERSION"), $prog) } }
 
+macro_rules! find_python {
+    ( $spec: expr ) => {
+        match pythons::find(&$spec) {
+            Some(python) => python,
+            None => {
+                eprint!("Requested Python version (");
+                match $spec {
+                    specs::Spec::Major(x) => eprint!("{}", x),
+                    specs::Spec::Minor(x, y) => eprint!("{}.{}", x, y),
+                };
+                eprint!(") is not installed\n");
+                process::exit(-1);
+            },
+        }
+    };
+
+    () => {
+        match pythons::find_default() {
+            Some(python) => python,
+            None => {
+                eprintln!("Python is not installed");
+                process::exit(-1);
+            }
+        }
+    };
+}
+
 fn run_child(python: &str, args: Vec<String>) {
     let err = exec::Command::new(python).args(&args).exec();
     eprintln!("Error: {}", err);
@@ -67,23 +94,9 @@ fn main() {
     let inv = get_invocation();
 
     let python = match inv {
-        Invocation::Help => { print_help!(prog); pythons::find_default() },
-        Invocation::Default => pythons::find_default(),
-        Invocation::Spec(spec) => {
-            args.next();
-            match pythons::find(&spec) {
-                Some(python) => python,
-                None => {
-                    eprint!("Requested Python version (");
-                    match spec {
-                        specs::Spec::Major(x) => eprint!("{}", x),
-                        specs::Spec::Minor(x, y) => eprint!("{}.{}", x, y),
-                    };
-                    eprint!(") is not installed\n");
-                    process::exit(-1);
-                },
-            }
-        },
+        Invocation::Help => { print_help!(prog); find_python!() },
+        Invocation::Default => find_python!(),
+        Invocation::Spec(spec) => { args.next(); find_python!(spec) },
     };
 
     let args = args.collect();
