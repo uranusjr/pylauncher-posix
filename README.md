@@ -70,6 +70,8 @@ Also, conforming to [PEP 486], if `py` is invoked (no version specifications) in
 [PEP 486]: https://www.python.org/dev/peps/pep-0486/
 
 
-## Future Works
+## Installation
 
-* Support configuration by `py.ini` and environment variables, as specified in [PEP 397].
+To install from source, use [Cargo](https://crates.io/):
+
+    cargo install pylauncher
