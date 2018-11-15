@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt;
 use std::fs;
 use std::path;
 
@@ -45,7 +46,6 @@ fn parse_executable_path(location: &path::Path) -> Option<(i16, i16, i16)> {
     }
 }
 
-#[derive(Debug)]
 struct Python {
     location: String,
     version: (i16, i16, i16),
@@ -80,6 +80,15 @@ impl Python {
     }
 }
 
+impl fmt::Debug for Python {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Python {{ {:?}, ({}, {}, {}), {} }}",
+            self.location,
+            self.version.0, self.version.1, self.version.2,
+            self.order)
+    }
+}
+
 struct ManagedFinder {
     dir: Option<fs::ReadDir>,
 }
@@ -108,7 +117,10 @@ impl Iterator for ManagedFinder {
             };
             match Python::from_managed(prefix) {
                 None => {},
-                Some(python) => { return Some(python); },
+                Some(python) => {
+                    dbg!("Managed" => &python);
+                    return Some(python);
+                },
             }
         }
     }
@@ -136,7 +148,10 @@ impl Iterator for ExecutableFinder {
             };
             match Python::from_in_path(prefix, self.order) {
                 None => {},
-                Some(python) => { return Some(python); },
+                Some(python) => {
+                    dbg!("Executable" => &python);
+                    return Some(python);
+                },
             }
         }
     }

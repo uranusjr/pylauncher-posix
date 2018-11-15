@@ -6,10 +6,16 @@ description = "Python Launcher for POSIX"
 readme = "README.md"
 license = "ISC"
 
+
 [[bin]]
 name = "py"
 path = "src/main.rs"
 
+
 [dependencies]
 exec = "^0.3.1"
 num-integer = "^0.1.39"
+
+# Remove after RFC 2361 is stable.
+# https://github.com/rust-lang/rust/issues/54306
+dbg = "^1.0.4"
