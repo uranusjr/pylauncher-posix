@@ -6,11 +6,14 @@ description = "Python Launcher for POSIX"
 readme = "README.md"
 license = "ISC"
 
+[package.metadata.deb]
+depends = "$auto"
+section = "python"
+priority = "optional"
 
 [[bin]]
 name = "py"
 path = "src/main.rs"
-
 
 [dependencies]
 exec = "^0.3.1"
