@@ -72,6 +72,11 @@ Also, conforming to [PEP 486], if `py` is invoked (no version specifications) in
 
 ## Installation
 
+If you’re on macOS, a [Homebrew](https://brew.sh) [Tap](https://docs.brew.sh/Taps) is available:
+
+    brew tap uranusjr/pythonup
+    brew install pylauncher
+
 To install from source, use [Cargo](https://crates.io/):
 
     cargo install pylauncher
