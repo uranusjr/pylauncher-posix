@@ -6,22 +6,27 @@ use specs;
 
 type Version = (i16, i16, i16);
 
+enum VersionPad {
+    Zero = 0,
+    Unknown = -1,
+}
+
 // Major, minor, patch. Any component could be -1 if unknown.
-// "default" specifies the default number to use if a part is missing. This
+// "pad" specifies the default number to use if a part is missing. This
 // is needed because older Python versions use e.g. "3.2" to refer 3.2.0, but
 // an executable "python3.2" is 3.2 with unknown patch name.
-fn parse_version_from_name(name: &str, default: i16) -> Option<Version> {
-
+fn parse_version_from_name(name: &str, pad: VersionPad) -> Option<Version> {
+    let pad = pad as i16;
     let mut bytes = name.as_bytes().iter();
 
     let major = match specs::parse_spec_part(&mut bytes) {
         specs::SpecPart::Invalid => { return None; },
-        specs::SpecPart::Number(n) => { return Some((n, default, default)) },
+        specs::SpecPart::Number(n) => { return Some((n, pad, pad)) },
         specs::SpecPart::NumberDot(n) => n,
     };
     let minor = match specs::parse_spec_part(&mut bytes) {
         specs::SpecPart::Invalid => { return None; },
-        specs::SpecPart::Number(n) => { return Some((major, n, default)) },
+        specs::SpecPart::Number(n) => { return Some((major, n, pad)) },
         specs::SpecPart::NumberDot(n) => n,
     };
     match specs::parse_spec_part(&mut bytes) {
@@ -35,7 +40,7 @@ fn parse_managed_root_path(root: &path::Path) -> Option<Version> {
     if name.starts_with("CPython-") {   // Pythonz prefixes CPython versions.
         name = &name[8..];
     }
-    parse_version_from_name(name, 0)
+    parse_version_from_name(name, VersionPad::Zero)
 }
 
 fn parse_executable_path(location: &path::Path) -> Option<Version> {
@@ -50,7 +55,7 @@ fn parse_executable_path(location: &path::Path) -> Option<Version> {
     if name.is_empty() {
         Some((-1, -1, -1))
     } else {
-        parse_version_from_name(name, -1)
+        parse_version_from_name(name, VersionPad::Unknown)
     }
 }
 
@@ -130,45 +135,38 @@ impl fmt::Debug for Python {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::VersionPad::{Zero, Unknown};
     use std::path::Path;
     use specs::Spec::{Major, Minor};
 
     #[test]
     fn test_parse_version_from_name() {
-        assert_eq!(parse_version_from_name("3.6.3", 0), Some((3, 6, 3)));
-    }
+        assert_eq!(parse_version_from_name("3.6.3", Zero), Some((3, 6, 3)));
 
-    #[test]
-    fn test_parse_version_from_name_default_patch_zero() {
-        assert_eq!(parse_version_from_name("2.6", 0), Some((2, 6, 0)));
-        assert_eq!(parse_version_from_name("3", 0), Some((3, 0, 0)));
-    }
+        // Pad default values.
+        assert_eq!(parse_version_from_name("2.6", Zero), Some((2, 6, 0)));
+        assert_eq!(parse_version_from_name("3", Zero), Some((3, 0, 0)));
 
-    #[test]
-    fn test_parse_version_from_name_default_patch_nonzero() {
-        assert_eq!(parse_version_from_name("2.6", -1), Some((2, 6, -1)));
-        assert_eq!(parse_version_from_name("3", -1), Some((3, -1, -1)));
+        // Default values can be -1.
+        assert_eq!(parse_version_from_name("2.6", Unknown), Some((2, 6, -1)));
+        assert_eq!(parse_version_from_name("3", Unknown), Some((3, -1, -1)));
     }
 
     #[test]
     fn test_parse_version_from_name_trailing_garbage() {
-        assert_eq!(parse_version_from_name("2.6-config", 0), None);
+        assert_eq!(parse_version_from_name("2.6-config", Zero), None);
     }
 
     // This might be supported in the future.
     #[test]
     fn test_parse_version_from_name_dev() {
-        assert_eq!(parse_version_from_name("3.8-dev", 0), None);
+        assert_eq!(parse_version_from_name("3.8-dev", Zero), None);
     }
 
     #[test]
     fn test_parse_managed_root_path() {
         assert_eq!(parse_managed_root_path(&Path::new("foo/3.6.1")),
                    Some((3, 6, 1)));
-    }
-
-    #[test]
-    fn test_parse_managed_root_path_cpython_prefix() {
         assert_eq!(parse_managed_root_path(&Path::new("foo/CPython-3.6.1")),
                    Some((3, 6, 1)));
     }
@@ -189,29 +187,22 @@ mod tests {
     #[test]
     fn test_parse_managed_root_path_alternative_implementation() {
         assert_eq!(parse_managed_root_path(&Path::new("PyPy-2.6.1")), None);
-        assert_eq!(parse_managed_root_path(&Path::new("pypy-2.6.1")), None);
+        assert_eq!(parse_managed_root_path(&Path::new("pypy3.5-6.0.0")), None);
     }
 
     #[test]
     fn test_parse_executable_path() {
         assert_eq!(parse_executable_path(&Path::new("python3.6")),
                    Some((3, 6, -1)));
-    }
-
-    #[test]
-    fn test_parse_executable_path_major() {
         assert_eq!(parse_executable_path(&Path::new("python2")),
                    Some((2, -1, -1)));
-    }
-
-    #[test]
-    fn test_parse_executable_path_python() {
         assert_eq!(parse_executable_path(&Path::new("python")),
                    Some((-1, -1, -1)));
     }
 
     #[test]
-    fn test_parse_executable_path_trailing_garbage() {
+    fn test_parse_executable_path_invalid() {
+        assert_eq!(parse_executable_path(&Path::new("2.7")), None);
         assert_eq!(parse_executable_path(&Path::new("python2.7-config")),
                    None);
     }
@@ -220,11 +211,6 @@ mod tests {
     #[test]
     fn test_parse_executable_path_m() {
         assert_eq!(parse_executable_path(&Path::new("python3.7m")), None);
-    }
-
-    #[test]
-    fn test_parse_executable_path_not_python() {
-        assert_eq!(parse_executable_path(&Path::new("2.7")), None);
     }
 
     #[test]
