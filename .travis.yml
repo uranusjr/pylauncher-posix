@@ -21,7 +21,9 @@ jobs:
     - stage: deb
       rust: stable
       install:
-        - cargo install cargo-deb
+        - >-
+          if [[ -z $(cargo install --list | grep '^cargo-deb v[0-9\.]*:') ]];
+          then cargo install cargo-deb; fi
       script:
         - cargo deb
 
