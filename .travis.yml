@@ -1,13 +1,26 @@
 language: rust
+
+cache: cargo
+
 rust:
   - stable
   - beta
   - nightly
+
 matrix:
   allow_failures:
     - rust: nightly
   fast_finish: true
-cache: cargo
+
 script:
   - cargo build --verbose --all
   - cargo test --verbose --all
+
+jobs:
+  include:
+    - stage: deb
+      rust: stable
+      install:
+        - cargo install cargo-deb
+      script:
+        - cargo deb
