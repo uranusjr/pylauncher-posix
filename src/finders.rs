@@ -105,10 +105,7 @@ pub fn find(spec: &specs::Spec) -> Option<String> {
 
 fn get_virtual() -> Option<String> {
     // The Windows launcher seems to swallow all errors, so we're not worse.
-    let root = match env::var("VIRTUAL_ENV") {
-        Ok(v) => v,
-        Err(_) => { return None; },
-    };
+    let root = env::var("VIRTUAL_ENV").ok()?;
 
     let location = path::Path::new(&root).join("bin/python");
     if location.is_file() {
