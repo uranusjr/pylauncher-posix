@@ -21,10 +21,7 @@ impl Iterator for ManagedFinder {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let prefix = match self.dir {
-                None => { return None; },
-                Some(ref mut d) => d.next()?.ok()?.path(),
-            };
+            let prefix = self.dir.as_mut()?.next()?.ok()?.path();
             match Python::from_managed(prefix, self.order) {
                 None => {},
                 Some(python) => {
@@ -52,10 +49,7 @@ impl Iterator for ExecutableFinder {
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let prefix = match self.dir {
-                None => { return None; },
-                Some(ref mut d) => d.next()?.ok()?.path(),
-            };
+            let prefix = self.dir.as_mut()?.next()?.ok()?.path();
             match Python::from_in_path(prefix, self.order) {
                 None => {},
                 Some(python) => {
