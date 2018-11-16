@@ -24,3 +24,23 @@ jobs:
         - cargo install cargo-deb
       script:
         - cargo deb
+
+deploy:
+  provider: releases
+  api_key:
+    secure: >-
+      oGsCApsVyWtQetXru5v/xf9hG1N1NSBivr7RHbSqRQ0/FVg11qnOAxVK0ehlJ0bLu7uHb+
+      wvAK4C6w0qjFKOKr/ny5b2EwYzoJVlmjioAx0TjKAeDPCkXjBcMpCl3W0XaMLWxAg/krma
+      jdx0miEMP7GYLnFbj8Ggra8i3TRhluY1uI8Qo3AKnpk53nemIcMO8r26YuabOv223u+HtM
+      pIb+scHWbhh5pTMYCvy5vKrKkvfmLjEygTRYrIxPjrbnEe2i2VAd7WUAKT0x1hpvJBAL9y
+      YTOOrXskXqTK7T0M4XosVmTIJfNAZ36WTnNeqDM4sEuPJ/Pbe7UQU3gQfhwFPGDXF/Acnr
+      ObL4/fmv5n11Z/925RnYzow5ZU1HbPJP/gmRydr6kf69E5wFNd81wmF/81Tu6BBhZABteB
+      zarLU+6/NTli9WZ+NYzRiN3wEeWQhptXYYKpz05elnv1vPZVOkCFkubo9UZ/l3Ghk/eH/T
+      U13Kx6+crI0LWXtlBOxGLyoG634rILPynVpwdEX6Pz1FIxgcKrPh8a1gvdjGDpDKeXroS7
+      WHDsbUfFX3LW3+syjeLFqPq8dyfzIqoFx4KiTB/wP1qzGw630qxvv36xUgWEgdO+BD7yMv
+      V+n038aHmJ/WMVOEiB+zdxd2fOtZ/YYd87kKBIDl4P2722mGQleNI=
+  file: target/debian/pylauncher_$TRAVIS_TAG_*.deb
+  skip_cleanup: true
+  'on':
+    repo: uranusjr/pylauncher-posix
+    tags: true
