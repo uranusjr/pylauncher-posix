@@ -1,5 +1,6 @@
 #[macro_use] extern crate dbg;
 
+mod confs;
 mod finders;
 mod procs;
 mod pythons;
