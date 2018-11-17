@@ -1,8 +1,7 @@
 #[macro_use] extern crate dbg;
 
-extern crate exec;
-
 mod finders;
+mod procs;
 mod pythons;
 mod specs;
 
@@ -84,24 +83,16 @@ macro_rules! find_python {
     };
 }
 
-fn run_child(python: &str, args: Vec<String>) {
-    let err = exec::Command::new(python).args(&args).exec();
-    eprintln!("Error: {}", err);
-    process::exit(-1);
-}
-
 fn main() {
     let mut args = env::args();
     let prog = args.next().unwrap_or_default();
 
-    let inv = get_invocation();
-
-    let python = match inv {
+    let python = match get_invocation() {
         Invocation::Help => { print_help!(prog); find_python!() },
         Invocation::Default => find_python!(),
         Invocation::Spec(spec) => { args.next(); find_python!(spec) },
     };
 
     let args = args.collect();
-    run_child(&python, args);
+    procs::run(&python, args);
 }
