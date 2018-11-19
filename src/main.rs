@@ -1,5 +1,6 @@
 #[macro_use] extern crate dbg;
 
+mod confs;
 mod finders;
 mod procs;
 mod pythons;
@@ -56,43 +57,73 @@ Launcher arguments:
 The following help text is from Python:
 ", env!("CARGO_PKG_VERSION"), $prog) } }
 
-macro_rules! find_python {
-    ( $spec: expr ) => {
-        match finders::find(&$spec) {
-            Some(python) => python,
-            None => {
-                eprint!("Requested Python version (");
-                match $spec {
-                    specs::Spec::Major(x) => eprint!("{}", x),
-                    specs::Spec::Minor(x, y) => eprint!("{}.{}", x, y),
-                };
-                eprint!(") is not installed\n");
-                process::exit(-1);
-            },
-        }
-    };
+fn resolve_spec(spec: Option<specs::Spec>) -> Option<specs::Spec> {
+    let conf = confs::Conf::new();
 
-    () => {
-        match finders::find_default() {
-            Some(python) => python,
-            None => {
-                eprintln!("Python is not installed");
-                process::exit(-1);
-            }
+    match spec {
+        Some(specs::Spec::Minor(_, _)) => { return spec; },
+        Some(specs::Spec::Major(x)) => match conf.default_python_for(x) {
+            None => { return spec; },
+            value => value,
+        },
+        None => conf.default_python(),
+    }.and_then(|s| specs::parse_spec(format!("-{}", s).as_bytes()))
+    // Big hack: The spec parser is used to parse options, so we add a dash
+    // in front to fake it. LOL.
+}
+
+fn find_python(spec: Option<specs::Spec>) -> Option<String> {
+    // PEP 486: If the invocation is without a spec, try to be aware of the
+    // surrounding virtual environment.
+    if spec.is_none() {
+        match finders::get_virtual() {
+            Some(python) => { return Some(python); }
+            None => {},
         }
+    }
+
+    // Expand the spec based on configuration.
+    let spec = resolve_spec(spec);
+
+    // Find it!
+    let found = match spec {
+        Some(ref spec) => finders::find(spec),
+        None => finders::find_best(),
     };
+    if found.is_some() {
+        return found;
+    }
+
+    // At this point the specified Python is not found. Report.
+    match spec {
+        None => { eprint!("Python"); },
+        Some(spec) => {
+            eprint!("Requested Python version (");
+            match spec {
+                specs::Spec::Major(x) => { eprint!("{}", x); },
+                specs::Spec::Minor(x, y) => { eprint!("{}.{}", x, y) },
+            }
+            eprint!(")");
+        }
+    }
+    eprint!(" is not installed\n");
+    None
 }
 
 fn main() {
     let mut args = env::args();
     let prog = args.next().unwrap_or_default();
 
-    let python = match get_invocation() {
-        Invocation::Help => { print_help!(prog); find_python!() },
-        Invocation::Default => find_python!(),
-        Invocation::Spec(spec) => { args.next(); find_python!(spec) },
+    let spec = match get_invocation() {
+        Invocation::Help => { print_help!(prog); None },
+        Invocation::Default => None,
+        Invocation::Spec(spec) => { args.next(); Some(spec) },
     };
 
+    let python = match find_python(spec) {
+        Some(python) => python,
+        None => { process::exit(-1); },
+    };
     let args = args.collect();
     procs::run(&python, args);
 }
