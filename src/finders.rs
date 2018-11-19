@@ -102,8 +102,14 @@ pub fn find(spec: &specs::Spec) -> Option<String> {
         .map(|p| p.location().to_string())
 }
 
+pub fn find_best() -> Option<String> {
+    collect_all().into_iter()
+        .fold(None, select_best)
+        .map(|p| p.location().to_string())
+}
 
-fn get_virtual() -> Option<String> {
+
+pub fn get_virtual() -> Option<String> {
     // The Windows launcher seems to swallow all errors, so we're not worse.
     let root = env::var("VIRTUAL_ENV").ok()?;
 
@@ -113,14 +119,4 @@ fn get_virtual() -> Option<String> {
     } else {
         None
     }
-}
-
-pub fn find_default() -> Option<String> {
-    match get_virtual() {
-        Some(v) => { return Some(v); },
-        None => {},
-    }
-    collect_all().into_iter()
-        .fold(None, select_best)
-        .map(|p| p.location().to_string())
 }
