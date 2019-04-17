@@ -1,3 +1,5 @@
+ABANDONED. Try [python-launcher](https://github.com/brettcannon/python-launcher) if you’re interested in a similar solution.
+
 # Python Launcher for POSIX
 
 [![Build Status](https://travis-ci.com/uranusjr/pylauncher-posix.svg?branch=master)](https://travis-ci.com/uranusjr/pylauncher-posix)
